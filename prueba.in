@@ -1,0 +1,3 @@
+ls -l -s
+ip addr
+exit
