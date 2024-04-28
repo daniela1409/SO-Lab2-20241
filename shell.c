@@ -5,15 +5,20 @@
 #include <errno.h>
 
 #define MAX_COMMAND_LENGTH 100
+#define MAX_ARGUMENTS 64
 
-int separaItems (char * expresion,char *** items, int * background);
+int separaItems (char * command,char *** items);
 void exec_cd(char * directorio);
 void exec_path(char *** items, int num);
+void print_error();
+void parse_input(char *input, char **arguments);
+void execute_command(char **arguments, char **path);
+void execute_parallel_commands(char **commands, char **path);
 
 char ** items;
-int num, background;
-char expresion[MAX_COMMAND_LENGTH];
-char error_message[30] = "An error has occurred\n";
+int num;
+char command[MAX_COMMAND_LENGTH];
+char command[MAX_COMMAND_LENGTH];
 const char *path[] = {
 "./",
 "/usr/bin/",
@@ -22,31 +27,46 @@ NULL
 };
 
 
-int main() {
-
+int main(int argc, char *argv[]) {
+    FILE *input_file = stdin;
     while (1) {
         // Imprimir el prompt
         printf("wish> ");
         
         // Obtener la entrada del usuario
-        if (fgets(expresion, MAX_COMMAND_LENGTH, stdin) == NULL) {
+        if (fgets(command, MAX_COMMAND_LENGTH, stdin) == NULL) {
             perror("Error al leer la entrada");
             exit(EXIT_FAILURE);
         }
 
-        num = separaItems (expresion, &items, &background);
-            
+        num = separaItems (command, &items);
         if(num > 0){
             if (strcmp(items[0], "exit") == 0) {
                 exit(0); 
             }
             else if(strcmp(items[0], "cd") == 0 /*&& background != 1**/){
+                printf("entra cd ");
                 if(num < 3){
                     exec_cd(items[1]);
                 }
             }
             else if(strcmp(items[0], "path") == 0){
+                printf("entra path ");
                 exec_path(items, num);
+            }
+            else{
+                printf("entras otro ");
+                char *commands[MAX_ARGUMENTS];
+                char *token;
+                int i = 0;
+                token = strtok(command, "&\n");
+                while (token != NULL && i < MAX_ARGUMENTS - 1) {
+                    commands[i++] = token;
+                    token = strtok(NULL, "&\n");
+                }
+                commands[i] = NULL;
+
+                execute_parallel_commands(commands, path);
             }
         }    
         if(path[0] != NULL){
@@ -61,50 +81,48 @@ int main() {
     return 0;
 }
 
-int separaItems (char * expresion,   // Palabras a separar
-                 char *** items,     // Resultado
-                 int * background)   // 1 si hay un & al final
+int separaItems (char * command,   // Palabras a separar
+                 char *** items)   // 1 si hay un & al final
 {
   int i, j, num, ult;
   char ** pp;
                     // En principio:
   *items = NULL;    //   cero parametros
-  *background = 0;  //   ejecucion en primer plano
 
-  for (i=0; expresion[i]!='\0'; i++)  // Cambiar saltos de
-    if (expresion[i]=='\n' ||         // linea y tabuladores
-        expresion[i]=='\t')           // por espacios
-      expresion[i] = ' ';
+  for (i=0; command[i]!='\0'; i++)  // Cambiar saltos de
+    if (command[i]=='\n' ||         // linea y tabuladores
+        command[i]=='\t')           // por espacios
+      command[i] = ' ';
 
-  while (*expresion==' ')   // Quitar espacios del principio
-    expresion ++;
+  while (*command==' ')   // Quitar espacios del principio
+    command ++;
 
-  if (*expresion=='\0')     // Si cadena vacia ...
+  if (*command=='\0')     // Si cadena vacia ...
     return 0;               // ... cero parametros
 
-  for (i=1, num=1, ult=0; expresion[i]!='\0'; i++)
-    if (expresion[i]!=' ' &&
-        expresion[i-1]==' ')            // Contar palabras
+  for (i=1, num=1, ult=0; command[i]!='\0'; i++)
+    if (command[i]!=' ' &&
+        command[i-1]==' ')            // Contar palabras
     {                                   // (parametros)
       num ++;
       ult = i;     // Recordar posicion de la ultima palabra
     }
 
   i --;
-  while (i>=0 && expresion[i]==' ')   // Quitar espacios
-    expresion[i--] = '\0';            // del final
+  while (i>=0 && command[i]==' ')   // Quitar espacios
+    command[i--] = '\0';            // del final
 
   pp = malloc ((num+1)*sizeof(char*));  // Pedir array
   if (pp==NULL) return -1;              // de punteros
 
-  pp[0] = expresion;  // El primer parametro es facil
+  pp[0] = command;  // El primer parametro es facil
 
-  for (i=1, j=1; expresion[i]!='\0'; i++)  // Localizar los
-    if (expresion[i]!=' ' &&             // demas parametros,
-        expresion[i-1]==' ')           // apuntar a ellos con
+  for (i=1, j=1; command[i]!='\0'; i++)  // Localizar los
+    if (command[i]!=' ' &&             // demas parametros,
+        command[i-1]==' ')           // apuntar a ellos con
     {                                // los punteros del
-      expresion[i-1] = '\0';       // array, y poner \0 en
-      pp[j++] = expresion + i;   // lugar de espacios
+      command[i-1] = '\0';       // array, y poner \0 en
+      pp[j++] = command + i;   // lugar de espacios
     }
                   // Anyadir un puntero a NULL al final del
   pp[j] = NULL;   // array de punteros (asi es mas facil
@@ -120,7 +138,7 @@ void exec_cd(char * directorio)
     int ret = chdir (directorio);
     //Valida si hubo error al entrar a carpeta
     if (ret != 0) {
-        write(STDERR_FILENO, error_message, strlen(error_message));
+        print_error();
     }
 }
 
@@ -137,5 +155,60 @@ void exec_path(char *** items, int num){
                 path[j] = NULL;
             }
         }
+    }
+}
+
+void print_error() {
+    char error_message[] = "An error has occurred\n";
+    write(STDERR_FILENO, error_message, strlen(error_message));
+}
+
+void parse_input(char *input, char **arguments) {
+    char *token;
+    int i = 0;
+    token = strtok(input, " \t\r\n");
+    while (token != NULL && i < MAX_ARGUMENTS - 1) {
+        arguments[i++] = token;
+        token = strtok(NULL, " \t\r\n");
+    }
+    arguments[i] = NULL;
+}
+
+void execute_command(char **arguments, char **path) {
+    pid_t pid = fork();
+    if (pid == 0) {
+        execvp(arguments[0], arguments);
+        print_error();
+        exit(EXIT_FAILURE);
+    } else if (pid < 0) {
+        print_error();
+    } else {
+        wait(NULL);
+    }
+}
+
+void execute_parallel_commands(char **commands, char **path) {
+    int num_commands = 0;
+    while (commands[num_commands] != NULL) {
+        num_commands++;
+    }
+    pid_t pids[num_commands];
+    int status;
+
+    for (int i = 0; i < num_commands; i++) {
+        char *arguments[MAX_ARGUMENTS];
+        parse_input(commands[i], arguments);
+
+        pids[i] = fork();
+        if (pids[i] == 0) {
+            execute_command(arguments, path);
+            exit(EXIT_SUCCESS);
+        } else if (pids[i] < 0) {
+            print_error();
+        }
+    }
+
+    for (int i = 0; i < num_commands; i++) {
+        waitpid(pids[i], &status, 0);
     }
 }
