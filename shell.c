@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/wait.h>
 
 #define MAX_COMMAND_LENGTH 100
 #define MAX_ARGUMENTS 64
@@ -17,11 +18,8 @@ void execute_parallel_commands(char **commands, char **path);
 
 char ** items;
 int num;
-char command[MAX_COMMAND_LENGTH];
-char command[MAX_COMMAND_LENGTH];
+char expresion[MAX_COMMAND_LENGTH];
 const char *path[] = {
-"./",
-"/usr/bin/",
 "/bin/",
 NULL
 };
@@ -29,17 +27,30 @@ NULL
 
 int main(int argc, char *argv[]) {
     FILE *input_file = stdin;
+    char command[MAX_COMMAND_LENGTH];
     while (1) {
         // Imprimir el prompt
-        printf("wish> ");
-        
+        if (input_file == stdin) {
+            printf("wish> ");
+            fflush(stdout);
+        }
+        if (fgets(command, sizeof(command), input_file) == NULL) {
+            if (input_file != stdin) {
+                fclose(input_file);
+            }
+            exit(0);
+        }
+        strcpy(expresion, command);
         // Obtener la entrada del usuario
-        if (fgets(command, MAX_COMMAND_LENGTH, stdin) == NULL) {
+        /*if (fgets(expresion, MAX_COMMAND_LENGTH, stdin) == NULL) {
             perror("Error al leer la entrada");
             exit(EXIT_FAILURE);
-        }
+        }*/
 
-        num = separaItems (command, &items);
+
+        num = separaItems (expresion, &items);
+
+        command[strcspn(command, "\n")] = '\0';
         if(num > 0){
             if (strcmp(items[0], "exit") == 0) {
                 exit(0); 
@@ -65,6 +76,9 @@ int main(int argc, char *argv[]) {
                     token = strtok(NULL, "&\n");
                 }
                 commands[i] = NULL;
+                for (int i = 0; commands[i] != NULL; i++) {
+                    printf("Comando[%d]: %s\n", i, commands[i]);
+                }
 
                 execute_parallel_commands(commands, path);
             }

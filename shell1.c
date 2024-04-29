@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/wait.h>
 
 #define MAX_COMMAND_LENGTH 100
 #define MAX_ARGUMENTS 64
@@ -32,22 +33,29 @@ int main(int argc, char *argv[]) {
     char command[MAX_COMMAND_LENGTH];
 
     if (argc > 1) {
+        //printf("recibio archivo");
         input_file = fopen(argv[1], "r");
         if (input_file == NULL) {
             print_error();
             exit(EXIT_FAILURE);
         }
     }
+    if(argc>2){
+        print_error();
+    }
 
 
     while (1) {
         // Imprimir el prompt
-        printf("wish> ");
+        if (input_file == stdin) {
+            printf("wish> ");
+            fflush(stdout);
+        }
         
         // Obtener la entrada del usuario
-        if (fgets(expresion, MAX_COMMAND_LENGTH, stdin) == NULL) {
-            perror("Error al leer la entrada");
-            exit(EXIT_FAILURE);
+        if (fgets(expresion, MAX_COMMAND_LENGTH, input_file) == NULL) {
+            //perror("Error al leer la entrada");
+            exit(0);
         }
 
         strcpy(command, expresion);
@@ -55,26 +63,33 @@ int main(int argc, char *argv[]) {
         num = separaItems (expresion, &items);
         command[strcspn(command, "\n")] = '\0';
         if (strcmp(command, "exit") == 0) {
-            printf("Saliendo de la shell...\n");
+            //printf("Saliendo de la shell...\n");
             exit(0); // Salir del bucle
         }
             
         if(num > 0){
             if (strcmp(items[0], "exit") == 0) {
-                exit(0); 
+                if(num > 1){
+                    print_error();
+                }else{
+                    exit(0); 
+                }
+                
             }
             else if(strcmp(items[0], "cd") == 0 /*&& background != 1**/){
-                printf("cd...\n");
+                //printf("cd...\n");
                 if(num < 3){
                     exec_cd(items[1]);
+                }else{
+                    print_error();
                 }
             }
             else if(strcmp(items[0], "path") == 0){
-                printf("path...\n");
+                //printf("path...\n");
                 exec_path(items, num);
             }
             else{
-                printf("otro...\n");
+                //printf("otro...\n");
                  char *commands[MAX_ARGUMENTS];
                 char *token;
                 int i = 0;
