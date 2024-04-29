@@ -32,6 +32,11 @@ int main(int argc, char *argv[]) {
     FILE *input_file = stdin;
     char command[MAX_COMMAND_LENGTH];
 
+    if(argc>2){
+        print_error();
+        exit(EXIT_FAILURE);
+    }
+
     if (argc > 1) {
         //printf("recibio archivo");
         input_file = fopen(argv[1], "r");
@@ -40,9 +45,7 @@ int main(int argc, char *argv[]) {
             exit(EXIT_FAILURE);
         }
     }
-    if(argc>2){
-        print_error();
-    }
+    
 
 
     while (1) {
@@ -209,11 +212,84 @@ void parse_input(char *input, char **arguments) {
 }
 
 void execute_command(char **arguments, char **path) {
+
+    int num_arguments = 0;
+    while (arguments[num_arguments] != NULL) {
+        num_arguments++;
+    }
+    //Buscamos si esta el simbolo > en los argumentos y contamos sus ocurrencias
+    int redirect_index = -1;
+    int redirect_cont =0;
+    for (int i = 0; arguments[i] != NULL; i++) {
+        if (strcmp(arguments[i], ">") == 0) {
+            redirect_index = i;
+            redirect_cont++;
+            
+        }
+    }
+
     pid_t pid = fork();
     if (pid == 0) {
-        execvp(arguments[0], arguments);
-        print_error();
-        exit(EXIT_FAILURE);
+
+        if (redirect_index >= 0) {
+        //Verificar si el ultimo argumento es >, entonces no hay archivo de salida
+            if (num_arguments >= 2 && strcmp(arguments[num_arguments - 1], ">") == 0 && arguments[num_arguments] == NULL){
+                print_error();
+                exit(0);
+            }
+            //Verificar si el primer argumentos es >
+            if (strcmp(arguments[0], ">") == 0){        
+                print_error();
+                exit(0);
+            }
+
+            //Verificar si despues del > hay mas de un argumento
+            if (strcmp(arguments[num_arguments - 2], ">") != 0){        
+                print_error();
+                exit(0);
+            }
+            //Verificamos si hay mas de 1 >
+            if(redirect_cont>1){
+                print_error();
+                exit(0);
+            }
+
+
+            // Verificar si hay redirección de salida
+            if (num_arguments >= 3 && strcmp(arguments[num_arguments - 2], ">") == 0) {
+                // Redirección de salida encontrada
+                char *output_file = arguments[num_arguments - 1]; // Nombre del archivo de salida
+
+                // Verificar si el archivo de salida es solo el símbolo de redirección
+                if (strcmp(output_file, ">") == 0) {
+                    // No se proporcionó un nombre de archivo válido después de '>'
+                    print_error();
+                    //exit(EXIT_FAILURE);
+                }
+
+                arguments[num_arguments - 2] = NULL; // Eliminar el símbolo de redirección
+                arguments[num_arguments - 1] = NULL; // Eliminar el nombre del archivo de salida
+
+                // Abrir el archivo de salida
+                FILE *output = fopen(output_file, "w");
+                if (output == NULL) {
+                    // Manejar errores al abrir el archivo
+                    print_error();
+                    //exit(EXIT_FAILURE);
+                }
+
+                // Redirigir la salida estándar al archivo
+                dup2(fileno(output), STDOUT_FILENO);
+                fclose(output);
+                execvp(arguments[0], arguments);
+                print_error();
+            }
+        }else{
+            execvp(arguments[0], arguments);
+            print_error();
+            //exit(EXIT_FAILURE);
+        }
+        
     } else if (pid < 0) {
         print_error();
     } else {
