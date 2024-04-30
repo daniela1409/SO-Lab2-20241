@@ -10,7 +10,7 @@
 
 int separaItems (char * expresion,char *** items);
 void exec_cd(char * directorio);
-void exec_path(char *** items, int num);
+void exec_path(const char **items, const char **path, int num);
 void print_error();
 void parse_input(char *input, char **arguments);
 void execute_command(char **arguments, char **path);
@@ -20,10 +20,8 @@ void execute_parallel_commands(char **commands, char **path);
 char ** items;
 int num;
 char expresion[MAX_COMMAND_LENGTH];
-const char *path[] = {
-"./",
-"/usr/bin/",
-"/bin/",
+char *path[] = {
+"/bin",
 NULL
 };
 
@@ -49,6 +47,7 @@ int main(int argc, char *argv[]) {
 
 
     while (1) {
+        
         // Imprimir el prompt
         if (input_file == stdin) {
             printf("wish> ");
@@ -60,11 +59,16 @@ int main(int argc, char *argv[]) {
             //perror("Error al leer la entrada");
             exit(0);
         }
-
         strcpy(command, expresion);
 
         num = separaItems (expresion, &items);
+
+        for(int i = 0; i < num; i++){
+            printf("items... %s \n", items[i]);
+        }
+        
         command[strcspn(command, "\n")] = '\0';
+
         if (strcmp(command, "exit") == 0) {
             //printf("Saliendo de la shell...\n");
             exit(0); // Salir del bucle
@@ -88,30 +92,34 @@ int main(int argc, char *argv[]) {
                 }
             }
             else if(strcmp(items[0], "path") == 0){
+                for(int i = 0; i < num; i++){
+                    printf("items... %s \n", items[i]);
+                }
                 //printf("path...\n");
-                exec_path(items, num);
+                exec_path(items, path, num);
             }
             else{
-                //printf("otro...\n");
-                 char *commands[MAX_ARGUMENTS];
-                char *token;
-                int i = 0;
-                token = strtok(command, "&\n");
-                while (token != NULL && i < MAX_ARGUMENTS - 1) {
-                    commands[i++] = token;
-                    token = strtok(NULL, "&\n");
-                }
-                commands[i] = NULL;
+                if(path[0] != NULL){
+                    int tamaño = sizeof(path) / sizeof(path[0]);
+                        
+                        char *commands[MAX_ARGUMENTS];
+                        char *token;
+                        int i = 0;
+                        token = strtok(command, "&\n");
+                        while (token != NULL && i < MAX_ARGUMENTS - 1) {
+                            commands[i++] = token;
+                            token = strtok(NULL, "&\n");
+                        }
+                        commands[i] = NULL;
 
-                execute_parallel_commands(commands, path);
-            }
+                        execute_parallel_commands(commands, path);
+                }
+                else{
+                    print_error();
         }    
-        if(path[0] != NULL){
-            
-        }
-        else{
-            printf("Error\n");
-        }
+        }    
+
+        }  
         
     }
 
@@ -179,20 +187,24 @@ void exec_cd(char * directorio)
     }
 }
 
-void exec_path(char *** items, int num){
-    int tamaño = sizeof(path) / sizeof(path[0]);
+void exec_path(const char **items, const char **path, int num){
+
     int i;
+
+    for(i = 0; path[i] != NULL; i++){
+        printf("path %d %s \n", i, path[i]);
+        path[i] = NULL;
+        printf("path %d %s \n", i, path[i]);
+    }
+    //printf("items before... %c \n", items[0]);
     for (i = 1; i < num; i++)
     {
+        printf("items...%d %s \n", i, items[i]);
         path[i - 1] = items[i];
+        printf("path it...%d %s \n", i-1, path[i -1]);
     }
-    if(num == 1 || i >= num){
-        for(int j = i - 1; j < tamaño; j++){
-            if(path[j] != NULL){
-                path[j] = NULL;
-            }
-        }
-    }
+    path[i-1] = NULL;
+    
 }
 
 void print_error() {
