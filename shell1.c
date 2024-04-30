@@ -7,10 +7,11 @@
 
 #define MAX_COMMAND_LENGTH 100
 #define MAX_ARGUMENTS 64
+#define MAX_PATHS 30
 
 int separaItems (char * expresion,char *** items);
 void exec_cd(char * directorio);
-void exec_path(const char **items, const char **path, int num);
+void exec_path( char **items, char **path, int num);
 void print_error();
 void parse_input(char *input, char **arguments);
 void execute_command(char **arguments, char **path);
@@ -20,11 +21,36 @@ void execute_parallel_commands(char **commands, char **path);
 char ** items;
 int num;
 char expresion[MAX_COMMAND_LENGTH];
-char *path[] = {
+char *path[MAX_PATHS] = {
 "/bin",
 NULL
 };
 
+void check_and_execute_sh(char *expresion, char **path) {
+    // Verificar si la expresión contiene ".sh"
+    if (strstr(expresion, ".sh") != NULL) {
+        // Si se encuentra ".sh" en la expresión, haz algo aquí
+        printf("La expresión contiene '.sh': %s\n", expresion);
+        printf("Path despues de la masacre: %s", path[0]);
+        path[0]="/tests";
+        printf("Path despues sd de la masacre: %s", path[0]);
+        char filepath[MAX_COMMAND_LENGTH];
+        
+        snprintf(filepath, sizeof(filepath), ".%s/%s", path[0], expresion);
+        printf("Intentando ejecutar el script desde la ruta: %s\n", filepath);
+        if (access(filepath, X_OK) == 0)
+        {
+                // Si el archivo de script es ejecutable, ejecutarlo directamente
+                printf("Ejecutando el script directamente\n");
+                execvp(filepath, expresion);
+        }else{
+            printf("No fue valida");
+        }
+        /*//print_error();*/
+        exit(0);
+        // Puedes realizar alguna acción específica aquí, como ejecutar un comando especial o mostrar un mensaje
+    }
+}
 
 int main(int argc, char *argv[]) {
     FILE *input_file = stdin;
@@ -47,7 +73,6 @@ int main(int argc, char *argv[]) {
 
 
     while (1) {
-        
         // Imprimir el prompt
         if (input_file == stdin) {
             printf("wish> ");
@@ -59,13 +84,16 @@ int main(int argc, char *argv[]) {
             //perror("Error al leer la entrada");
             exit(0);
         }
+        // Verificar si la expresión contiene ".sh" y ejecutar alguna acción si es así
+        //check_and_execute_sh(expresion, path);
+
         strcpy(command, expresion);
 
         num = separaItems (expresion, &items);
 
-        for(int i = 0; i < num; i++){
+        /*for(int i = 0; i < num; i++){
             printf("items... %s \n", items[i]);
-        }
+        }*/
         
         command[strcspn(command, "\n")] = '\0';
 
@@ -92,27 +120,25 @@ int main(int argc, char *argv[]) {
                 }
             }
             else if(strcmp(items[0], "path") == 0){
-                for(int i = 0; i < num; i++){
+                /*for(int i = 0; i < num; i++){
                     printf("items... %s \n", items[i]);
-                }
+                }*/
                 //printf("path...\n");
                 exec_path(items, path, num);
             }
             else{
                 if(path[0] != NULL){
-                    int tamaño = sizeof(path) / sizeof(path[0]);
                         
-                        char *commands[MAX_ARGUMENTS];
-                        char *token;
-                        int i = 0;
-                        token = strtok(command, "&\n");
-                        while (token != NULL && i < MAX_ARGUMENTS - 1) {
-                            commands[i++] = token;
-                            token = strtok(NULL, "&\n");
-                        }
-                        commands[i] = NULL;
-
-                        execute_parallel_commands(commands, path);
+                    char *commands[MAX_ARGUMENTS];
+                    char *token;
+                    int i = 0;
+                    token = strtok(command, "&\n");
+                    while (token != NULL && i < MAX_ARGUMENTS - 1) {
+                        commands[i++] = token;
+                        token = strtok(NULL, "&\n");
+                    }
+                    commands[i] = NULL;
+                    execute_parallel_commands(commands, path);
                 }
                 else{
                     print_error();
@@ -187,24 +213,31 @@ void exec_cd(char * directorio)
     }
 }
 
-void exec_path(const char **items, const char **path, int num){
+void exec_path(char **items, char **path, int num)
+{
 
     int i;
 
-    for(i = 0; path[i] != NULL; i++){
-        printf("path %d %s \n", i, path[i]);
+    for (i = 0; path[i] != NULL; i++)
+    {
+        //printf("path %d %s \n", i, path[i]);
         path[i] = NULL;
-        printf("path %d %s \n", i, path[i]);
+        //printf("path %d %s \n", i, path[i]);
     }
-    //printf("items before... %c \n", items[0]);
+    // printf("items before... %c \n", items[0]);
     for (i = 1; i < num; i++)
     {
-        printf("items...%d %s \n", i, items[i]);
-        path[i - 1] = items[i];
-        printf("path it...%d %s \n", i-1, path[i -1]);
+        //printf("items...%d %s \n", i, items[i]);
+        path[i - 1] = (char *)malloc(strlen(items[i]) + 1);
+        if (path[i-1] == NULL) {
+            print_error();
+            exit(0);
+        }
+        
+        strcpy(path[i - 1], items[i]);
+        //printf("path it...%d %s \n", i - 1, path[i - 1]);
     }
-    path[i-1] = NULL;
-    
+    path[i - 1] = NULL;
 }
 
 void print_error() {
@@ -240,9 +273,15 @@ void execute_command(char **arguments, char **path) {
         }
     }
 
+
+   
+
+
+
+
     pid_t pid = fork();
     if (pid == 0) {
-
+        
         if (redirect_index >= 0) {
         //Verificar si el ultimo argumento es >, entonces no hay archivo de salida
             if (num_arguments >= 2 && strcmp(arguments[num_arguments - 1], ">") == 0 && arguments[num_arguments] == NULL){
@@ -297,6 +336,23 @@ void execute_command(char **arguments, char **path) {
                 print_error();
             }
         }else{
+             // Verificar si algún argumento contiene ".sh"
+            for (int i = 0; arguments[i] != NULL; i++) {
+                if (strstr(arguments[i], ".sh") != NULL) {
+                    // Si se encuentra ".sh" en el argumento, haz algo aquí
+                    //printf("El argumento %s contiene '.sh'\n", arguments[i]);
+                    // Puedes ejecutar alguna acción específica o realizar algún tratamiento especial
+                    char filepath[MAX_COMMAND_LENGTH];
+                    snprintf(filepath, sizeof(filepath), "./%s%s%s", path[i], (path[i][strlen(path[i]) - 1] != '/') ? "/" : "", arguments[0]);
+                    //printf("Intentando ejecutar el script desde la ruta: %s\n", filepath);
+                    if (access(filepath, X_OK) == 0)
+                    {
+                        // Si el archivo de script es ejecutable, ejecutarlo directamente
+                        //printf("Ejecutando el script directamente\n");
+                        execvp(filepath, arguments);
+                    }
+            }
+        }
             execvp(arguments[0], arguments);
             print_error();
             //exit(EXIT_FAILURE);
@@ -310,6 +366,7 @@ void execute_command(char **arguments, char **path) {
 }
 
 void execute_parallel_commands(char **commands, char **path) {
+    
     int num_commands = 0;
     while (commands[num_commands] != NULL) {
         num_commands++;

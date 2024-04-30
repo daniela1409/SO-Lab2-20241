@@ -1,0 +1,11 @@
+total 152
+drwxr-xr-x 4 ricard ricard  4096 Apr 29 21:10 .
+drwxr-xr-x 7 ricard ricard  4096 Apr 29 19:23 ..
+-rw-r--r-- 1 ricard ricard 87565 Apr 27 12:33 LinuxTutorial2.pdf
+-rw-r--r-- 1 ricard ricard 16377 Apr 27 12:33 README.md
+-rw-r--r-- 1 ricard ricard    70 Apr 29 21:09 outpuy
+-rw-r--r-- 1 ricard ricard     0 Apr 29 21:10 outpy
+-rwxr-xr-x 1 ricard ricard   124 Apr 27 12:33 test-wish.sh
+drwxr-xr-x 3 ricard ricard  4096 Apr 29 19:23 tests
+drwxr-xr-x 2 ricard ricard  4096 Apr 29 01:23 tests-out
+-rwxr-xr-x 1 ricard ricard 21640 Apr 29 20:58 wish
